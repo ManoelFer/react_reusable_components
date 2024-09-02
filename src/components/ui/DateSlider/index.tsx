@@ -75,10 +75,8 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
     }
 
     if (tooltipLeftRef.current && range.current) {
-      const val = minVal;
-
       const newVal = Number(
-        ((val - minimumDateConvertedToMilliseconds) * 100) /
+        ((minVal - minimumDateConvertedToMilliseconds) * 100) /
           (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
       );
 
@@ -96,10 +94,8 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
     }
 
     if (tooltipRightRef.current && range.current) {
-      const val = maxVal;
-
       const newVal = Number(
-        ((val - minimumDateConvertedToMilliseconds) * 100) /
+        ((maxVal - minimumDateConvertedToMilliseconds) * 100) /
           (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
       );
 
