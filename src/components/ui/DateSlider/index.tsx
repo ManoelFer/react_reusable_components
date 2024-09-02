@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 
 import { IDateSliderProps } from './types';
 
-import { Thumb } from './components';
+import { Thumb, Tooltip } from './components';
 
 const formatDateToCallback = (dateInMilliseconds: number) => format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
 
@@ -30,6 +30,8 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
 
   //ref fill div to indicate percentage filled
   const range = useRef<HTMLDivElement>(null);
+  const tooltipLeftRef = useRef<HTMLDivElement>(null);
+  const tooltipRightRef = useRef<HTMLDivElement>(null);
 
   /*
    1 - So that nextjs processes the same date as the client on the server and avoids the hydration error. 
@@ -72,9 +74,16 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
       range.current.style.width = `${maxPercent - minPercent}%`;
     }
 
-    // if (tooltipRef.current) {
-    //   tooltipRef.current.style.left = `${minPercent}%`;
-    // }
+    if (tooltipLeftRef.current && range.current) {
+      const val = minVal;
+
+      const newVal = Number(
+        ((val - minimumDateConvertedToMilliseconds) * 100) /
+          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
+      );
+
+      tooltipLeftRef.current.style.left = `calc(${newVal}% + (${-38 - newVal * 0.15}px))`;
+    }
   }, [minVal, getPercent]);
 
   // Set width of the range to decrease from the right side
@@ -84,6 +93,17 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
 
     if (range.current) {
       range.current.style.width = `${maxPercent - minPercent}%`;
+    }
+
+    if (tooltipRightRef.current && range.current) {
+      const val = maxVal;
+
+      const newVal = Number(
+        ((val - minimumDateConvertedToMilliseconds) * 100) /
+          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
+      );
+
+      tooltipRightRef.current.style.left = `calc(${newVal}% + (${-41 - newVal * 0.15}px))`;
     }
   }, [maxVal, getPercent]);
   /* ===================================================================== */
@@ -174,16 +194,16 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
         <div ref={range} className="absolute z-20 h-[5px] rounded-sm bg-[#1976D2]" style={{ width }} />
 
         {/* 
-            1 - show left value 
+            1 - show left tooltip value 
             2 - convert milliseconds to Date
         */}
-        <div className="absolute -left-5 mt-4 text-xs text-gray-300">{format(new Date(minVal), 'MMM dd yyyy')}</div>
+        <Tooltip ref={tooltipLeftRef} value={format(new Date(minVal), 'MMM dd yyyy')} />
 
         {/* 
             1 - show right value 
             2 - convert milliseconds to Date
         */}
-        <div className="absolute -right-5 mt-4 text-xs text-gray-300">{format(new Date(maxVal), 'MMM dd yyyy')}</div>
+        <Tooltip ref={tooltipRightRef} value={format(new Date(maxVal), 'MMM dd yyyy')} />
       </div>
     </div>
   );
