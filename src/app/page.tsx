@@ -1,5 +1,21 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { DateSlider } from '@/components/ui/DateSlider';
+
+import { addMonths, subMonths } from 'date-fns';
+
+const currentDate = new Date();
 
 export default function Home() {
-  redirect('/notes');
+  return (
+    <div className="flex flex-col items-center justify-center gap-20 pt-20">
+      <h1 className="text-white">Import bellow the component to tests!</h1>
+
+      <DateSlider
+        minimumDate={subMonths(currentDate, 1)}
+        maximumDate={addMonths(currentDate, 3)}
+        onChangeCommited={(values) => console.log('values', values)}
+      />
+    </div>
+  );
 }
