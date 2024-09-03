@@ -3,9 +3,10 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 
-import { IDateSliderProps } from './types';
+import { EThumbNames, IDateSliderProps } from './types';
 
 import { Thumb, Tooltip } from './components';
+import { TooltipPositions } from './components/Tooltip/types';
 
 const formatDateToCallback = (dateInMilliseconds: number) => format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
 
@@ -56,12 +57,12 @@ export function DateSlider({
     if (minimumDateConvertedToMilliseconds && maximumDateConvertedToMilliseconds) {
       setMinVal(minimumDateConvertedToMilliseconds);
       setMaxVal(maximumDateConvertedToMilliseconds);
-      if (intermediateDateConvertedToMilliseconds) setMidVal(intermediateDateConvertedToMilliseconds);
+      setMidVal(intermediateDateConvertedToMilliseconds || undefined);
 
       minValRef.current = minimumDateConvertedToMilliseconds;
       maxValRef.current = maximumDateConvertedToMilliseconds;
     }
-  }, [minimumDateConvertedToMilliseconds, maximumDateConvertedToMilliseconds]);
+  }, [minimumDateConvertedToMilliseconds, maximumDateConvertedToMilliseconds, intermediateDateConvertedToMilliseconds]);
 
   /* ==================== CONTROL OF DIV FILLING ======================== */
   // Convert to percentage
@@ -74,6 +75,80 @@ export function DateSlider({
       ),
     [minimumDateConvertedToMilliseconds, maximumDateConvertedToMilliseconds],
   );
+
+  const handleOnMouseUp = (event: React.MouseEvent<HTMLInputElement, MouseEvent>) => {
+    const dateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
+    const thumbName = (event.target as HTMLInputElement).name;
+
+    /*
+    when the user finishes changing the slider, it returns the current values
+    */
+    onChangeCommited?.({
+      minDateSelected: formatDateToCallback(
+        (thumbName as EThumbNames) === EThumbNames.MIN_DATE ? Number(dateInMillisecondsOnMouseUp) : minVal,
+      ),
+      midDateSelected: formatDateToCallback(
+        (thumbName as EThumbNames) === EThumbNames.MID_DATE ? Number(dateInMillisecondsOnMouseUp) : midVal || 0,
+      ),
+      maxDateSelected: formatDateToCallback(
+        (thumbName as EThumbNames) === EThumbNames.MAX_DATE ? Number(dateInMillisecondsOnMouseUp) : maxVal,
+      ),
+    });
+  };
+
+  const handleOnChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const dateInMilliseconds = Number(event.target.value);
+    const thumbName = event.target.name;
+
+    switch (thumbName as EThumbNames) {
+      case EThumbNames.MIN_DATE:
+        /*
+            The minimun value cannot be greater than the maximum value.
+            read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
+        */
+        const currentMinValue = midVal
+          ? Math.min(dateInMilliseconds, maxVal - 1, midVal - 1)
+          : Math.min(dateInMilliseconds, maxVal - 1);
+
+        //set state to change the thumb left position
+        setMinVal(currentMinValue);
+        minValRef.current = currentMinValue;
+        break;
+
+      case EThumbNames.MID_DATE:
+        /*
+            The mid value cannot be less than the minimum value neither be greater than the maximum value.
+        */
+        const minValueMoreOne = minVal + 1;
+        const maxValueMoreOne = maxVal + 1;
+
+        const currentMidValue =
+          minValueMoreOne +
+          dateInMilliseconds +
+          maxValueMoreOne -
+          Math.min(minValueMoreOne, dateInMilliseconds, maxValueMoreOne) -
+          Math.max(minValueMoreOne, dateInMilliseconds, maxValueMoreOne);
+
+        //set state to change the thumb mid position
+        setMidVal(currentMidValue);
+        break;
+
+      case EThumbNames.MAX_DATE:
+        /*
+            The maximum value cannot be less than the minimum value.
+            read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/max
+          */
+        const currentMaxValue = midVal
+          ? Math.max(dateInMilliseconds, minVal + 1, midVal + 1)
+          : Math.max(dateInMilliseconds, minVal + 1);
+
+        //set state to change the thumb right position
+        setMaxVal(currentMaxValue);
+
+        maxValRef.current = currentMaxValue;
+        break;
+    }
+  };
 
   // Set width of the range to decrease from the left side
   useEffect(() => {
@@ -133,149 +208,63 @@ export function DateSlider({
 
   return (
     <div className="flex w-full justify-center" suppressHydrationWarning>
-      <Thumb
-        min={minimumDateConvertedToMilliseconds}
-        max={maximumDateConvertedToMilliseconds}
-        value={minVal}
-        onMouseUp={(event) => {
-          const minDateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
+      {Array.from([
+        {
+          name: EThumbNames.MIN_DATE,
+          value: minVal,
+          zIndex: minVal > maximumDateConvertedToMilliseconds - 100 ? 60 : 30,
+        },
+        {
+          name: EThumbNames.MID_DATE,
+          value: midVal,
+          zIndex: 40,
+        },
+        {
+          name: EThumbNames.MAX_DATE,
+          value: maxVal,
+          zIndex: 50,
+        },
+      ]).map((thumb) => {
+        if (!thumb.value) return;
 
-          /*
-          when the user finishes changing the slider, it returns the current values
-          */
-          onChangeCommited?.({
-            minDateSelected: formatDateToCallback(Number(minDateInMillisecondsOnMouseUp)),
-            midDateSelected: midVal ? formatDateToCallback(midVal) : undefined,
-            maxDateSelected: formatDateToCallback(maxVal),
-          });
-        }}
-        onChange={(event) => {
-          /*
-            The minimun value cannot be greater than the maximum value.
-            The Math.min() returns the smallest of the numbers given as input parameters
-
-            example:
-            console.log(Math.min(2, 3, 1)); => Expected output: 1
-
-            console.log(Math.min(-2, -3, -1)); => Expected output: -3
-
-            read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
-          */
-          const value = midVal
-            ? Math.min(Number(event.target.value), maxVal - 1, midVal - 1)
-            : Math.min(Number(event.target.value), maxVal - 1);
-
-          //set state to change the thumb left position
-          setMinVal(value);
-          minValRef.current = value;
-        }}
-        style={{ zIndex: minVal > maximumDateConvertedToMilliseconds - 100 ? 60 : 30, width }}
-      />
-
-      {!!midVal && (
-        <Thumb
-          min={minimumDateConvertedToMilliseconds}
-          max={maximumDateConvertedToMilliseconds}
-          value={midVal}
-          onMouseUp={(event) => {
-            const midDateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
-
-            /*
-            when the user finishes changing the slider, it returns the current values
-            */
-            onChangeCommited?.({
-              minDateSelected: formatDateToCallback(minVal),
-              midDateSelected: formatDateToCallback(Number(midDateInMillisecondsOnMouseUp)),
-              maxDateSelected: formatDateToCallback(maxVal),
-            });
-          }}
-          onChange={(event) => {
-            /*
-            The mid value cannot be less than the minimum value neither be greater than the maximum value.
-          */
-            const currentMidValue = Number(event.target.value);
-
-            const minValueMoreOne = minVal + 1;
-            const maxValueMoreOne = maxVal + 1;
-
-            const value =
-              minValueMoreOne +
-              currentMidValue +
-              maxValueMoreOne -
-              Math.min(minValueMoreOne, currentMidValue, maxValueMoreOne) -
-              Math.max(minValueMoreOne, currentMidValue, maxValueMoreOne);
-
-            //set state to change the thumb left position
-            setMidVal(value);
-          }}
-          style={{ zIndex: 40, width }}
-        />
-      )}
-
-      <Thumb
-        min={minimumDateConvertedToMilliseconds}
-        max={maximumDateConvertedToMilliseconds}
-        value={maxVal}
-        onMouseUp={(event) => {
-          const maxDateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
-
-          /*
-            when the user finishes changing the slider, it returns the current values
-            */
-          onChangeCommited?.({
-            minDateSelected: formatDateToCallback(minVal),
-            midDateSelected: midVal ? formatDateToCallback(midVal) : undefined,
-            maxDateSelected: formatDateToCallback(Number(maxDateInMillisecondsOnMouseUp)),
-          });
-        }}
-        onChange={(event) => {
-          /*
-            The maximum value cannot be less than the minimum value.
-            The Math.max() returns the largest of the numbers given as input parameters
-
-            example:
-            console.log(Math.min(2, 3, 1)); => Expected output: 3
-
-            console.log(Math.min(-2, -3, -1)); => Expected output: -1
-
-            read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/max
-          */
-          const value = midVal
-            ? Math.max(Number(event.target.value), minVal + 1, midVal + 1)
-            : Math.max(Number(event.target.value), minVal + 1);
-
-          //set state to change the thumb left position
-          setMaxVal(value);
-
-          maxValRef.current = value;
-        }}
-        style={{ zIndex: 50, width }}
-      />
+        return (
+          <Thumb
+            key={thumb.name}
+            name={thumb.name}
+            min={minimumDateConvertedToMilliseconds}
+            max={maximumDateConvertedToMilliseconds}
+            value={thumb.value}
+            onMouseUp={handleOnMouseUp}
+            onChange={handleOnChange}
+            style={{ zIndex: thumb.zIndex, width }}
+          />
+        );
+      })}
 
       <div className="relative" style={{ width }}>
-        {/* bar div */}
+        {/* bar */}
         <div className="absolute z-10 h-[5px] rounded-sm bg-[#1976D2] bg-opacity-35" style={{ width }} />
 
-        {/* fill div */}
+        {/* progress */}
         <div ref={range} className="absolute z-20 h-[5px] rounded-sm bg-[#1976D2]" style={{ width }} />
 
-        {/* 
-            1 - show left tooltip value 
-            2 - convert milliseconds to Date
-        */}
-        <Tooltip ref={tooltipLeftRef} value={format(new Date(minVal), 'MMM dd yyyy')} />
+        {/* tooltips */}
+        {Array.from([
+          { value: minVal, ref: tooltipLeftRef, position: 'top' },
+          { value: midVal, ref: tooltipMidRef, position: 'bottom' },
+          { value: maxVal, ref: tooltipRightRef, position: 'top' },
+        ]).map((tooltip, index) => {
+          if (!tooltip.value) return;
 
-        {/* 
-            1 - show mid value 
-            2 - convert milliseconds to Date
-        */}
-        {!!midVal && <Tooltip ref={tooltipMidRef} value={format(new Date(midVal), 'MMM dd yyyy')} position="bottom" />}
-
-        {/* 
-            1 - show right value 
-            2 - convert milliseconds to Date
-        */}
-        <Tooltip ref={tooltipRightRef} value={format(new Date(maxVal), 'MMM dd yyyy')} />
+          return (
+            <Tooltip
+              key={index}
+              ref={tooltip.ref}
+              value={format(new Date(tooltip.value), 'MMM dd yyyy')}
+              position={tooltip.position as TooltipPositions}
+            />
+          );
+        })}
       </div>
     </div>
   );
