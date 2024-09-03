@@ -7,9 +7,15 @@ interface DatesCallback {
 export interface IDateSliderProps {
   minimumDate: Date;
   maximumDate: Date;
-  intermediateDate?: Date;
   width?: number;
   onChangeCommited?: (callback: DatesCallback) => void;
+  intermediateDate?: Date;
+  bringTheItermediateDateToTheEndDate?: {
+    play: boolean;
+    intervalInMilliseconds: number;
+    onChangeIntermediateDate?: (midDateSelected: string) => void;
+    onEnd: () => void;
+  };
 }
 
 export enum EThumbNames {

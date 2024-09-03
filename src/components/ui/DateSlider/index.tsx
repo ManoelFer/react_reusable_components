@@ -10,12 +10,16 @@ import { TooltipPositions } from './components/Tooltip/types';
 
 const formatDateToCallback = (dateInMilliseconds: number) => format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
 
+const dayInMilliseconds = 86400000;
+let countIntermediateDate = 0;
+
 export function DateSlider({
   minimumDate,
   maximumDate,
   intermediateDate,
   width = 300,
   onChangeCommited,
+  bringTheItermediateDateToTheEndDate,
 }: IDateSliderProps) {
   /*
    1 - I did this conversion because it is easier to work with numbers here.
@@ -203,6 +207,34 @@ export function DateSlider({
   }, [midVal, getPercent]);
   /* ===================================================================== */
 
+  useEffect(() => {
+    //start range mid date
+    if (
+      !bringTheItermediateDateToTheEndDate ||
+      !bringTheItermediateDateToTheEndDate.play ||
+      !intermediateDateConvertedToMilliseconds
+    )
+      return;
+
+    countIntermediateDate = midVal || intermediateDateConvertedToMilliseconds;
+
+    const startAnimation = setInterval(() => {
+      countIntermediateDate += dayInMilliseconds;
+
+      if (countIntermediateDate >= maximumDateConvertedToMilliseconds) {
+        clearInterval(startAnimation);
+        bringTheItermediateDateToTheEndDate.onEnd();
+      }
+
+      setMidVal(countIntermediateDate);
+      bringTheItermediateDateToTheEndDate.onChangeIntermediateDate?.(formatDateToCallback(countIntermediateDate));
+    }, bringTheItermediateDateToTheEndDate.intervalInMilliseconds);
+
+    return () => {
+      clearInterval(startAnimation);
+    };
+  }, [bringTheItermediateDateToTheEndDate?.play]);
+
   //So that nextjs processes the same date as the client on the server and avoids the hydration error. read more: https://nextjs.org/docs/messages/react-hydration-error
   if (!isClient) return null;
 
@@ -212,12 +244,12 @@ export function DateSlider({
         {
           name: EThumbNames.MIN_DATE,
           value: minVal,
-          zIndex: minVal > maximumDateConvertedToMilliseconds - 100 ? 60 : 30,
+          zIndex: minVal >= maxVal ? 60 : 30,
         },
         {
           name: EThumbNames.MID_DATE,
           value: midVal,
-          zIndex: 40,
+          zIndex: midVal && midVal >= maxVal ? 60 : 40,
         },
         {
           name: EThumbNames.MAX_DATE,
@@ -229,6 +261,7 @@ export function DateSlider({
 
         return (
           <Thumb
+            disabled={!!bringTheItermediateDateToTheEndDate?.play}
             key={thumb.name}
             name={thumb.name}
             min={minimumDateConvertedToMilliseconds}
