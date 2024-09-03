@@ -9,7 +9,13 @@ import { Thumb, Tooltip } from './components';
 
 const formatDateToCallback = (dateInMilliseconds: number) => format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
 
-export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeCommited }: IDateSliderProps) {
+export function DateSlider({
+  minimumDate,
+  maximumDate,
+  intermediateDate,
+  width = 300,
+  onChangeCommited,
+}: IDateSliderProps) {
   /*
    1 - I did this conversion because it is easier to work with numbers here.
    2 - The code below obtains the time in milliseconds from January 1, 1970 to the specified date. "new Date().getTime()" .
@@ -17,12 +23,14 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
   */
   const minimumDateConvertedToMilliseconds = new Date(minimumDate).getTime();
   const maximumDateConvertedToMilliseconds = new Date(maximumDate).getTime();
+  const intermediateDateConvertedToMilliseconds = intermediateDate ? new Date(intermediateDate).getTime() : null;
 
   //So that nextjs processes the same date as the client on the server and avoids the hydration error. read more: https://nextjs.org/docs/messages/react-hydration-error
   const [isClient, setIsClient] = useState(false);
 
   //states control the thumbs we can swipe
   const [minVal, setMinVal] = useState(0);
+  const [midVal, setMidVal] = useState<number>();
   const [maxVal, setMaxVal] = useState(100);
 
   const minValRef = useRef(0);
@@ -30,8 +38,11 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
 
   //ref fill div to indicate percentage filled
   const range = useRef<HTMLDivElement>(null);
+
+  //ref tooltip div to show the date
   const tooltipLeftRef = useRef<HTMLDivElement>(null);
   const tooltipRightRef = useRef<HTMLDivElement>(null);
+  const tooltipMidRef = useRef<HTMLDivElement>(null);
 
   /*
    1 - So that nextjs processes the same date as the client on the server and avoids the hydration error. 
@@ -45,6 +56,7 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
     if (minimumDateConvertedToMilliseconds && maximumDateConvertedToMilliseconds) {
       setMinVal(minimumDateConvertedToMilliseconds);
       setMaxVal(maximumDateConvertedToMilliseconds);
+      if (intermediateDateConvertedToMilliseconds) setMidVal(intermediateDateConvertedToMilliseconds);
 
       minValRef.current = minimumDateConvertedToMilliseconds;
       maxValRef.current = maximumDateConvertedToMilliseconds;
@@ -102,6 +114,18 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
       tooltipRightRef.current.style.left = `calc(${newVal}% + (${-41 - newVal * 0.15}px))`;
     }
   }, [maxVal, getPercent]);
+
+  // Manage middlw tooltip
+  useEffect(() => {
+    if (tooltipMidRef.current && range.current && midVal) {
+      const newVal = Number(
+        ((midVal - minimumDateConvertedToMilliseconds) * 100) /
+          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
+      );
+
+      tooltipMidRef.current.style.left = `calc(${newVal}% + (${-41 - newVal * 0.15}px))`;
+    }
+  }, [midVal, getPercent]);
   /* ===================================================================== */
 
   //So that nextjs processes the same date as the client on the server and avoids the hydration error. read more: https://nextjs.org/docs/messages/react-hydration-error
@@ -121,6 +145,7 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
           */
           onChangeCommited?.({
             minDateSelected: formatDateToCallback(Number(minDateInMillisecondsOnMouseUp)),
+            midDateSelected: midVal ? formatDateToCallback(midVal) : undefined,
             maxDateSelected: formatDateToCallback(maxVal),
           });
         }}
@@ -136,14 +161,56 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
 
             read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
           */
-          const value = Math.min(Number(event.target.value), maxVal - 1);
+          const value = midVal
+            ? Math.min(Number(event.target.value), maxVal - 1, midVal - 1)
+            : Math.min(Number(event.target.value), maxVal - 1);
 
           //set state to change the thumb left position
           setMinVal(value);
           minValRef.current = value;
         }}
-        style={{ zIndex: minVal > maximumDateConvertedToMilliseconds - 100 ? 50 : 30, width }}
+        style={{ zIndex: minVal > maximumDateConvertedToMilliseconds - 100 ? 60 : 30, width }}
       />
+
+      {!!midVal && (
+        <Thumb
+          min={minimumDateConvertedToMilliseconds}
+          max={maximumDateConvertedToMilliseconds}
+          value={midVal}
+          onMouseUp={(event) => {
+            const midDateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
+
+            /*
+            when the user finishes changing the slider, it returns the current values
+            */
+            onChangeCommited?.({
+              minDateSelected: formatDateToCallback(minVal),
+              midDateSelected: formatDateToCallback(Number(midDateInMillisecondsOnMouseUp)),
+              maxDateSelected: formatDateToCallback(maxVal),
+            });
+          }}
+          onChange={(event) => {
+            /*
+            The mid value cannot be less than the minimum value neither be greater than the maximum value.
+          */
+            const currentMidValue = Number(event.target.value);
+
+            const minValueMoreOne = minVal + 1;
+            const maxValueMoreOne = maxVal + 1;
+
+            const value =
+              minValueMoreOne +
+              currentMidValue +
+              maxValueMoreOne -
+              Math.min(minValueMoreOne, currentMidValue, maxValueMoreOne) -
+              Math.max(minValueMoreOne, currentMidValue, maxValueMoreOne);
+
+            //set state to change the thumb left position
+            setMidVal(value);
+          }}
+          style={{ zIndex: 40, width }}
+        />
+      )}
 
       <Thumb
         min={minimumDateConvertedToMilliseconds}
@@ -157,6 +224,7 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
             */
           onChangeCommited?.({
             minDateSelected: formatDateToCallback(minVal),
+            midDateSelected: midVal ? formatDateToCallback(midVal) : undefined,
             maxDateSelected: formatDateToCallback(Number(maxDateInMillisecondsOnMouseUp)),
           });
         }}
@@ -172,14 +240,16 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
 
             read more: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/max
           */
-          const value = Math.max(Number(event.target.value), minVal + 1);
+          const value = midVal
+            ? Math.max(Number(event.target.value), minVal + 1, midVal + 1)
+            : Math.max(Number(event.target.value), minVal + 1);
 
           //set state to change the thumb left position
           setMaxVal(value);
 
           maxValRef.current = value;
         }}
-        style={{ zIndex: 40, width }}
+        style={{ zIndex: 50, width }}
       />
 
       <div className="relative" style={{ width }}>
@@ -194,6 +264,12 @@ export function DateSlider({ minimumDate, maximumDate, width = 300, onChangeComm
             2 - convert milliseconds to Date
         */}
         <Tooltip ref={tooltipLeftRef} value={format(new Date(minVal), 'MMM dd yyyy')} />
+
+        {/* 
+            1 - show mid value 
+            2 - convert milliseconds to Date
+        */}
+        {!!midVal && <Tooltip ref={tooltipMidRef} value={format(new Date(midVal), 'MMM dd yyyy')} position="bottom" />}
 
         {/* 
             1 - show right value 

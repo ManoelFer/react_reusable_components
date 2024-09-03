@@ -12,8 +12,9 @@ export default function Home() {
       <h1 className="text-white">Import bellow the component to tests!</h1>
 
       <DateSlider
-        minimumDate={subMonths(currentDate, 1)}
+        minimumDate={subMonths(currentDate, 7)}
         maximumDate={addMonths(currentDate, 3)}
+        intermediateDate={currentDate}
         onChangeCommited={(values) => console.log('values', values)}
       />
     </div>
