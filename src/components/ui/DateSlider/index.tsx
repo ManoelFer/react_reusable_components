@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
 
 import { EThumbNames, IDateSliderProps } from './types';
 
-import { Thumb, Tooltip } from './components';
-import { TooltipPositions } from './components/Tooltip/types';
+import { Thumb, Bubble } from './components';
+import { BubblePositions } from './components/Bubble/types';
 
-const formatDateToCallback = (dateInMilliseconds: number) => format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
+import { formatDateToCallback, getSliderPercentage, getThumbPosition } from './utils';
 
 const dayInMilliseconds = 86400000;
 let countIntermediateDate = 0;
@@ -38,16 +38,56 @@ export function DateSlider({
   const [midVal, setMidVal] = useState<number>();
   const [maxVal, setMaxVal] = useState(100);
 
-  const minValRef = useRef(0);
-  const maxValRef = useRef(100);
+  /*
+  When you move the minimum thumb selector, you need to store the maximum value 
+  and when you move the maximum thumb selector, you need to store the minimum value. 
+  To controll slider fill percentage.
+  */
+  const minPercentageRef = useRef(minimumDateConvertedToMilliseconds);
+  const maxPercentageRef = useRef(maximumDateConvertedToMilliseconds);
 
   //ref fill div to indicate percentage filled
   const range = useRef<HTMLDivElement>(null);
 
-  //ref tooltip div to show the date
-  const tooltipLeftRef = useRef<HTMLDivElement>(null);
-  const tooltipRightRef = useRef<HTMLDivElement>(null);
-  const tooltipMidRef = useRef<HTMLDivElement>(null);
+  //ref bubble div to show the date
+  const bubbleLeftRef = useRef<HTMLDivElement>(null);
+  const bubbleRightRef = useRef<HTMLDivElement>(null);
+  const bubbleMidRef = useRef<HTMLDivElement>(null);
+
+  const handlePositionOfThumbBubble = (thumbSide: 'left' | 'mid' | 'right') => {
+    if (range.current) {
+      const thumbPosition = getThumbPosition({
+        inputRangeValue:
+          (thumbSide === 'left' && minVal) || (thumbSide === 'mid' && midVal) || (thumbSide === 'right' && maxVal) || 0,
+        inputRangeMinValue: minimumDateConvertedToMilliseconds,
+        inputRangeMaxValue: maximumDateConvertedToMilliseconds,
+        variant: thumbSide === 'left' ? -38 : -41,
+      });
+
+      if (thumbSide === 'left' && bubbleLeftRef.current) bubbleLeftRef.current.style.left = thumbPosition;
+      if (thumbSide === 'mid' && bubbleMidRef.current) bubbleMidRef.current.style.left = thumbPosition;
+      if (thumbSide === 'right' && bubbleRightRef.current) bubbleRightRef.current.style.left = thumbPosition;
+    }
+  };
+
+  const handleSliderFillPercentage = (thumbSide: 'left' | 'right') => {
+    const minPercent = getSliderPercentage({
+      inputRangeValue: thumbSide === 'right' ? minPercentageRef.current : minVal,
+      inputRangeMinValue: minimumDateConvertedToMilliseconds,
+      inputRangeMaxValue: maximumDateConvertedToMilliseconds,
+    });
+
+    const maxPercent = getSliderPercentage({
+      inputRangeValue: thumbSide === 'left' ? maxPercentageRef.current : maxVal,
+      inputRangeMinValue: minimumDateConvertedToMilliseconds,
+      inputRangeMaxValue: maximumDateConvertedToMilliseconds,
+    });
+
+    if (range.current) {
+      if (thumbSide === 'left') range.current.style.left = `${minPercent}%`;
+      range.current.style.width = `${maxPercent - minPercent}%`;
+    }
+  };
 
   /*
    1 - So that nextjs processes the same date as the client on the server and avoids the hydration error. 
@@ -63,22 +103,52 @@ export function DateSlider({
       setMaxVal(maximumDateConvertedToMilliseconds);
       setMidVal(intermediateDateConvertedToMilliseconds || undefined);
 
-      minValRef.current = minimumDateConvertedToMilliseconds;
-      maxValRef.current = maximumDateConvertedToMilliseconds;
+      minPercentageRef.current = minimumDateConvertedToMilliseconds;
+      maxPercentageRef.current = maximumDateConvertedToMilliseconds;
     }
   }, [minimumDateConvertedToMilliseconds, maximumDateConvertedToMilliseconds, intermediateDateConvertedToMilliseconds]);
 
+  /**
+   * Update bubbles on move input range tooltip
+   */
+  useEffect(() => {
+    handlePositionOfThumbBubble('left');
+    handlePositionOfThumbBubble('mid');
+    handlePositionOfThumbBubble('right');
+  }, [minVal, maxVal, midVal]);
+
+  /**
+   * Move mid date to last date
+   */
+  useEffect(() => {
+    //start range mid date
+    if (
+      !bringTheItermediateDateToTheEndDate ||
+      !bringTheItermediateDateToTheEndDate.play ||
+      !intermediateDateConvertedToMilliseconds
+    )
+      return;
+
+    countIntermediateDate = midVal || intermediateDateConvertedToMilliseconds;
+
+    const startAnimation = setInterval(() => {
+      countIntermediateDate += dayInMilliseconds;
+
+      if (countIntermediateDate >= maximumDateConvertedToMilliseconds) {
+        clearInterval(startAnimation);
+        bringTheItermediateDateToTheEndDate.onEnd();
+      }
+
+      setMidVal(countIntermediateDate);
+      bringTheItermediateDateToTheEndDate.onChangeIntermediateDate?.(formatDateToCallback(countIntermediateDate));
+    }, bringTheItermediateDateToTheEndDate.intervalInMilliseconds);
+
+    return () => {
+      clearInterval(startAnimation);
+    };
+  }, [bringTheItermediateDateToTheEndDate?.play]);
+
   /* ==================== CONTROL OF DIV FILLING ======================== */
-  // Convert to percentage
-  const getPercent = useCallback(
-    (value: number) =>
-      Math.round(
-        ((value - minimumDateConvertedToMilliseconds) /
-          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds)) *
-          100,
-      ),
-    [minimumDateConvertedToMilliseconds, maximumDateConvertedToMilliseconds],
-  );
 
   const handleOnMouseUp = (event: React.MouseEvent<HTMLInputElement, MouseEvent>) => {
     const dateInMillisecondsOnMouseUp = (event.target as HTMLInputElement).value;
@@ -116,7 +186,9 @@ export function DateSlider({
 
         //set state to change the thumb left position
         setMinVal(currentMinValue);
-        minValRef.current = currentMinValue;
+        minPercentageRef.current = currentMinValue;
+
+        handleSliderFillPercentage('left');
         break;
 
       case EThumbNames.MID_DATE:
@@ -149,91 +221,13 @@ export function DateSlider({
         //set state to change the thumb right position
         setMaxVal(currentMaxValue);
 
-        maxValRef.current = currentMaxValue;
+        maxPercentageRef.current = currentMaxValue;
+        handleSliderFillPercentage('right');
         break;
     }
   };
 
-  // Set width of the range to decrease from the left side
-  useEffect(() => {
-    const minPercent = getPercent(minVal);
-    const maxPercent = getPercent(maxValRef.current);
-
-    if (range.current) {
-      range.current.style.left = `${minPercent}%`;
-
-      range.current.style.width = `${maxPercent - minPercent}%`;
-    }
-
-    if (tooltipLeftRef.current && range.current) {
-      const newVal = Number(
-        ((minVal - minimumDateConvertedToMilliseconds) * 100) /
-          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
-      );
-
-      tooltipLeftRef.current.style.left = `calc(${newVal}% + (${-38 - newVal * 0.15}px))`;
-    }
-  }, [minVal, getPercent]);
-
-  // Set width of the range to decrease from the right side
-  useEffect(() => {
-    const minPercent = getPercent(minValRef.current);
-    const maxPercent = getPercent(maxVal);
-
-    if (range.current) {
-      range.current.style.width = `${maxPercent - minPercent}%`;
-    }
-
-    if (tooltipRightRef.current && range.current) {
-      const newVal = Number(
-        ((maxVal - minimumDateConvertedToMilliseconds) * 100) /
-          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
-      );
-
-      tooltipRightRef.current.style.left = `calc(${newVal}% + (${-41 - newVal * 0.15}px))`;
-    }
-  }, [maxVal, getPercent]);
-
-  // Manage middlw tooltip
-  useEffect(() => {
-    if (tooltipMidRef.current && range.current && midVal) {
-      const newVal = Number(
-        ((midVal - minimumDateConvertedToMilliseconds) * 100) /
-          (maximumDateConvertedToMilliseconds - minimumDateConvertedToMilliseconds),
-      );
-
-      tooltipMidRef.current.style.left = `calc(${newVal}% + (${-41 - newVal * 0.15}px))`;
-    }
-  }, [midVal, getPercent]);
   /* ===================================================================== */
-
-  useEffect(() => {
-    //start range mid date
-    if (
-      !bringTheItermediateDateToTheEndDate ||
-      !bringTheItermediateDateToTheEndDate.play ||
-      !intermediateDateConvertedToMilliseconds
-    )
-      return;
-
-    countIntermediateDate = midVal || intermediateDateConvertedToMilliseconds;
-
-    const startAnimation = setInterval(() => {
-      countIntermediateDate += dayInMilliseconds;
-
-      if (countIntermediateDate >= maximumDateConvertedToMilliseconds) {
-        clearInterval(startAnimation);
-        bringTheItermediateDateToTheEndDate.onEnd();
-      }
-
-      setMidVal(countIntermediateDate);
-      bringTheItermediateDateToTheEndDate.onChangeIntermediateDate?.(formatDateToCallback(countIntermediateDate));
-    }, bringTheItermediateDateToTheEndDate.intervalInMilliseconds);
-
-    return () => {
-      clearInterval(startAnimation);
-    };
-  }, [bringTheItermediateDateToTheEndDate?.play]);
 
   //So that nextjs processes the same date as the client on the server and avoids the hydration error. read more: https://nextjs.org/docs/messages/react-hydration-error
   if (!isClient) return null;
@@ -281,20 +275,20 @@ export function DateSlider({
         {/* progress */}
         <div ref={range} className="absolute z-20 h-[5px] rounded-sm bg-[#1976D2]" style={{ width }} />
 
-        {/* tooltips */}
+        {/* bubbles */}
         {Array.from([
-          { value: minVal, ref: tooltipLeftRef, position: 'top' },
-          { value: midVal, ref: tooltipMidRef, position: 'bottom' },
-          { value: maxVal, ref: tooltipRightRef, position: 'top' },
-        ]).map((tooltip, index) => {
-          if (!tooltip.value) return;
+          { value: minVal, ref: bubbleLeftRef, position: 'top' },
+          { value: midVal, ref: bubbleMidRef, position: 'bottom' },
+          { value: maxVal, ref: bubbleRightRef, position: 'top' },
+        ]).map((bubbles, index) => {
+          if (!bubbles.value) return;
 
           return (
-            <Tooltip
+            <Bubble
               key={index}
-              ref={tooltip.ref}
-              value={format(new Date(tooltip.value), 'MMM dd yyyy')}
-              position={tooltip.position as TooltipPositions}
+              ref={bubbles.ref}
+              value={format(new Date(bubbles.value), 'MMM dd yyyy')}
+              position={bubbles.position as BubblePositions}
             />
           );
         })}

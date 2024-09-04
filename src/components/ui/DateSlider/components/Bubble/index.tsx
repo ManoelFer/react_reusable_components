@@ -1,8 +1,8 @@
 import { forwardRef } from 'react';
 
-import { ITooltipProps } from './types';
+import { IBubbleProps } from './types';
 
-export const Tooltip = forwardRef<HTMLDivElement, ITooltipProps>(({ value, position = 'top' }, ref) => {
+export const Bubble = forwardRef<HTMLDivElement, IBubbleProps>(({ value, position = 'top' }, ref) => {
   return (
     <div
       ref={ref}
