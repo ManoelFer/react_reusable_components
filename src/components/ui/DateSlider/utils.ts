@@ -1,5 +1,7 @@
 import { format } from 'date-fns';
 
+export const dayInMilliseconds = 86400000;
+
 export const formatDateToCallback = (dateInMilliseconds: number) =>
   format(new Date(Number(dateInMilliseconds)), 'MM-dd-yyyy');
 

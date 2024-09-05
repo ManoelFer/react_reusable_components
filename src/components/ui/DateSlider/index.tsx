@@ -8,9 +8,8 @@ import { EThumbNames, IDateSliderProps } from './types';
 import { ThumbRefComponent, BubbleWithThumb } from './components';
 import { BubblePositions } from './components/BubbleWithThumb/types';
 
-import { formatDateToCallback, getSliderPercentage, getThumbPosition } from './utils';
+import { dayInMilliseconds, formatDateToCallback, getSliderPercentage, getThumbPosition } from './utils';
 
-const dayInMilliseconds = 86400000;
 let countIntermediateDate = 0;
 
 export function DateSlider({
