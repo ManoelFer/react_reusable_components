@@ -68,15 +68,15 @@ export function DateSlider({
     }
   };
 
-  const handleSliderFillPercentage = (thumbSide: 'left' | 'right') => {
+  const handleSliderFillPercentage = (thumbSide: 'left' | 'right', currentValue: number) => {
     const minPercent = getSliderPercentage({
-      inputRangeValue: thumbSide === 'right' ? minPercentageRef.current : minVal,
+      inputRangeValue: thumbSide === 'right' ? minPercentageRef.current : currentValue,
       inputRangeMinValue: minimumDateConvertedToMilliseconds,
       inputRangeMaxValue: maximumDateConvertedToMilliseconds,
     });
 
     const maxPercent = getSliderPercentage({
-      inputRangeValue: thumbSide === 'left' ? maxPercentageRef.current : maxVal,
+      inputRangeValue: thumbSide === 'left' ? maxPercentageRef.current : currentValue,
       inputRangeMinValue: minimumDateConvertedToMilliseconds,
       inputRangeMaxValue: maximumDateConvertedToMilliseconds,
     });
@@ -132,7 +132,7 @@ export function DateSlider({
     const startAnimation = setInterval(() => {
       countIntermediateDate += dayInMilliseconds;
 
-      if (countIntermediateDate >= maximumDateConvertedToMilliseconds) {
+      if (countIntermediateDate >= maxVal) {
         clearInterval(startAnimation);
         bringTheItermediateDateToTheEndDate.onEnd();
       }
@@ -186,7 +186,7 @@ export function DateSlider({
         setMinVal(currentMinValue);
         minPercentageRef.current = currentMinValue;
 
-        handleSliderFillPercentage('left');
+        handleSliderFillPercentage('left', currentMinValue);
         break;
 
       case EThumbNames.MID_DATE:
@@ -220,7 +220,7 @@ export function DateSlider({
         setMaxVal(currentMaxValue);
 
         maxPercentageRef.current = currentMaxValue;
-        handleSliderFillPercentage('right');
+        handleSliderFillPercentage('right', currentMaxValue);
         break;
     }
   };
