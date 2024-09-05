@@ -5,8 +5,8 @@ import { format } from 'date-fns';
 
 import { EThumbNames, IDateSliderProps } from './types';
 
-import { Thumb, Bubble } from './components';
-import { BubblePositions } from './components/Bubble/types';
+import { ThumbRefComponent, BubbleWithThumb } from './components';
+import { BubblePositions } from './components/BubbleWithThumb/types';
 
 import { formatDateToCallback, getSliderPercentage, getThumbPosition } from './utils';
 
@@ -61,7 +61,6 @@ export function DateSlider({
           (thumbSide === 'left' && minVal) || (thumbSide === 'mid' && midVal) || (thumbSide === 'right' && maxVal) || 0,
         inputRangeMinValue: minimumDateConvertedToMilliseconds,
         inputRangeMaxValue: maximumDateConvertedToMilliseconds,
-        variant: thumbSide === 'left' ? -38 : -41,
       });
 
       if (thumbSide === 'left' && bubbleLeftRef.current) bubbleLeftRef.current.style.left = thumbPosition;
@@ -238,23 +237,23 @@ export function DateSlider({
         {
           name: EThumbNames.MIN_DATE,
           value: minVal,
-          zIndex: minVal >= maxVal ? 60 : 30,
+          zIndex: minVal >= maxVal ? 70 : 40,
         },
         {
           name: EThumbNames.MID_DATE,
           value: midVal,
-          zIndex: midVal && midVal >= maxVal ? 60 : 40,
+          zIndex: midVal && midVal >= maxVal ? 70 : 50,
         },
         {
           name: EThumbNames.MAX_DATE,
           value: maxVal,
-          zIndex: 50,
+          zIndex: 60,
         },
       ]).map((thumb) => {
         if (!thumb.value) return;
 
         return (
-          <Thumb
+          <ThumbRefComponent
             disabled={!!bringTheItermediateDateToTheEndDate?.play}
             key={thumb.name}
             name={thumb.name}
@@ -277,18 +276,20 @@ export function DateSlider({
 
         {/* bubbles */}
         {Array.from([
-          { value: minVal, ref: bubbleLeftRef, position: 'top' },
-          { value: midVal, ref: bubbleMidRef, position: 'bottom' },
-          { value: maxVal, ref: bubbleRightRef, position: 'top' },
+          { refName: 'min', value: minVal, ref: bubbleLeftRef, position: 'top' },
+          { refName: 'mid', value: midVal, ref: bubbleMidRef, position: 'bottom' },
+          { refName: 'max', value: maxVal, ref: bubbleRightRef, position: 'top' },
         ]).map((bubbles, index) => {
           if (!bubbles.value) return;
 
           return (
-            <Bubble
+            <BubbleWithThumb
               key={index}
               ref={bubbles.ref}
+              refName={bubbles.refName}
               value={format(new Date(bubbles.value), 'MMM dd yyyy')}
               position={bubbles.position as BubblePositions}
+              playIsActive={!!bringTheItermediateDateToTheEndDate?.play}
             />
           );
         })}

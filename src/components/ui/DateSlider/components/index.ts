@@ -1,2 +1,2 @@
-export { Thumb } from './Thumb';
-export { Bubble } from './Bubble';
+export { ThumbRefComponent } from './ThumbRefComponent';
+export { BubbleWithThumb } from './BubbleWithThumb';

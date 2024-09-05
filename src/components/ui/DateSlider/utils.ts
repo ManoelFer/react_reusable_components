@@ -17,14 +17,12 @@ export const getThumbPosition = ({
   inputRangeValue,
   inputRangeMinValue,
   inputRangeMaxValue,
-  variant,
 }: {
   inputRangeValue: number;
   inputRangeMinValue: number;
   inputRangeMaxValue: number;
-  variant: number;
 }) => {
   const percentage = getSliderPercentage({ inputRangeMaxValue, inputRangeMinValue, inputRangeValue });
 
-  return `calc(${percentage}% + (${variant - percentage * 0.15}px))`;
+  return `calc(${percentage}% + (${-3 - percentage * 0.15}px))`;
 };
