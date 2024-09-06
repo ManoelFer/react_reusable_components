@@ -266,7 +266,7 @@ export function DateSlider({
         );
       })}
 
-      <div className="relative" style={{ width }}>
+      <div className="relative flex items-center" style={{ width }}>
         {/* bar */}
         <div className="absolute z-10 h-[5px] rounded-sm bg-[#1976D2] bg-opacity-35" style={{ width }} />
 
